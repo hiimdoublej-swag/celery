@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from functools import partial
 from ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
 from urllib.parse import unquote
+import threading
 
 from kombu.utils.functional import retry_over_time
 from kombu.utils.objects import cached_property
@@ -303,7 +304,8 @@ class RedisBackend(BaseKeyValueStoreBackend, AsyncBackendMixin):
             self, self.app, self.accept,
             self._pending_results, self._pending_messages,
         )
-
+        self._local = threading.local()
+    
     def _params_from_url(self, url, defaults):
         scheme, host, port, username, password, path, query = _parse_url(url)
         connparams = dict(
@@ -569,10 +571,15 @@ class RedisBackend(BaseKeyValueStoreBackend, AsyncBackendMixin):
             self._ConnectionPool = self.redis.ConnectionPool
         return self._ConnectionPool
 
-    @cached_property
+    @property
     def client(self):
-        return self._create_client(**self.connparams)
+        c = getattr(self._local, 'client', None)
+        if c:
+            return c
 
+        self._local.client = self._create_client(**self.connparams)
+        return self._local.client
+    
     def __reduce__(self, args=(), kwargs=None):
         kwargs = {} if not kwargs else kwargs
         return super().__reduce__(
