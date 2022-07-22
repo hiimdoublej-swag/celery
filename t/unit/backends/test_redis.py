@@ -800,6 +800,17 @@ class test_RedisBackend(basetest_RedisBackend):
     def test_set_raises_error_on_large_value(self):
         with pytest.raises(BackendStoreError):
             self.b.set('key', 'x' * (self.b._MAX_STR_VALUE_SIZE + 1))
+    
+    def test_each_thread_use_different_redis_client(self):
+        from concurrent.futures import ThreadPoolExecutor
+
+        backend = self.Backend(app=self.app)
+        main_client = backend.client
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(lambda: backend.client)
+
+        thread_client = future.result()
+        assert main_client is not thread_client
 
 
 class test_RedisBackend_chords_simple(basetest_RedisBackend):

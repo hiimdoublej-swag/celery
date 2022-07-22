@@ -266,9 +266,6 @@ Features
 .. figure:: ../images/dashboard.png
    :width: 700px
 
-.. figure:: ../images/monitor.png
-   :width: 700px
-
 More screenshots_:
 
 .. _screenshots: https://github.com/mher/flower/tree/master/docs/screenshots
@@ -739,7 +736,7 @@ Sent if the execution of the task failed.
 task-rejected
 ~~~~~~~~~~~~~
 
-:signature: ``task-rejected(uuid, requeued)``
+:signature: ``task-rejected(uuid, requeue)``
 
 The task was rejected by the worker, possibly to be re-queued or moved to a
 dead letter queue.

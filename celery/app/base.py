@@ -259,6 +259,9 @@ class Celery:
         if not isinstance(self._tasks, TaskRegistry):
             self._tasks = self.registry_cls(self._tasks or {})
 
+        # Used for caching redis backend, redis-py is thread safe
+        self._redis_backend = None
+
         # If the class defines a custom __reduce_args__ we need to use
         # the old way of pickling apps: pickling a list of
         # args instead of the new way that pickles a dict of keywords.
@@ -733,7 +736,8 @@ class Celery:
             options, route_name or name, args, kwargs, task_type)
         if expires is not None:
             if isinstance(expires, datetime):
-                expires_s = (maybe_make_aware(expires) - self.now()).total_seconds()
+                expires_s = (maybe_make_aware(
+                    expires) - self.now()).total_seconds()
             else:
                 expires_s = expires
 
@@ -765,6 +769,7 @@ class Celery:
                     options.setdefault('priority',
                                        parent.request.delivery_info.get('priority'))
 
+        # alias for 'task_as_v2'
         message = amqp.create_task_message(
             task_id, name, args, kwargs, countdown, eta, group_id, group_index,
             expires, retries, chord,
@@ -773,8 +778,7 @@ class Celery:
             self.conf.task_send_sent_event,
             root_id, parent_id, shadow, chain,
             ignore_result=ignore_result,
-            argsrepr=options.get('argsrepr'),
-            kwargsrepr=options.get('kwargsrepr'),
+            **options
         )
 
         if connection:
@@ -954,6 +958,11 @@ class Celery:
         backend, url = backends.by_url(
             self.backend_cls or self.conf.result_backend,
             self.loader)
+
+        # if isinstance(url, str) and url.startswith('redis'):
+        #     self._redis_backend = self._redis_backend or backend(app=self, url=url)
+        #     return self._redis_backend
+
         return backend(app=self, url=url)
 
     def _finalize_pending_conf(self):

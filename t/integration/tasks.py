@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from time import sleep
 
 from celery import Signature, Task, chain, chord, group, shared_task
@@ -85,6 +86,12 @@ def delayed_sum_with_soft_guard(numbers, pause_time=1):
 def tsum(nums):
     """Sum an iterable of numbers."""
     return sum(nums)
+
+
+@shared_task
+def xsum(nums):
+    """Sum of ints and lists."""
+    return sum(sum(num) if isinstance(num, Iterable) else num for num in nums)
 
 
 @shared_task(bind=True)
@@ -213,6 +220,16 @@ def retry_once_priority(self, *args, expires=60.0, max_retries=1,
     """Task that fails and is retried. Returns the priority."""
     if self.request.retries:
         return self.request.delivery_info['priority']
+    raise self.retry(countdown=countdown,
+                     max_retries=max_retries)
+
+
+@shared_task(bind=True, max_retries=1)
+def retry_once_headers(self, *args, max_retries=1,
+                       countdown=0.1):
+    """Task that fails and is retried. Returns headers."""
+    if self.request.retries:
+        return self.request.headers
     raise self.retry(countdown=countdown,
                      max_retries=max_retries)
 
